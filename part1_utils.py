@@ -84,7 +84,7 @@ def conv2d_vectorized(img, kernel, pad_mode="constant"):
     H, W = img.shape
     kh, kw = kernel.shape
     padded = _pad(img, kh // 2, kw // 2, pad_mode)
-    kf = kernel[::-1, ::-1]
+    kf = kernel[::-1, ::-1] #explaination: the ::1 means to take every element in the array 
     out = np.zeros((H, W))
     for i in range(kh):
         for j in range(kw):
