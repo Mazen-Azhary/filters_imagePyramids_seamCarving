@@ -60,17 +60,17 @@ def  get_image_energy(img, energy_function = "gradient magnitude"):
 
     img_channels = get_image_channels(curr_img)
 
-    r_img, g_img, b_img = img_channels
+    r_img, g_img, b_img = img_channels[0], img_channels[1], img_channels[2]
     Dx = np.array([[1.0, 0.0, -1.0]])  # 1 x 3
     Dy = Dx.T   
 
-    xg, yg, b_gradient_map_rocket_image = gradient_maps(b_img, Dx, Dy)
-    xg, yg, g_gradient_map_rocket_image = gradient_maps(g_img, Dx, Dy)
     xg, yg, r_gradient_map_rocket_image = gradient_maps(r_img, Dx, Dy)
+    xg, yg, g_gradient_map_rocket_image = gradient_maps(g_img, Dx, Dy)
+    xg, yg, b_gradient_map_rocket_image = gradient_maps(b_img, Dx, Dy)
 
-    imgs = [r_img, g_img, b_img]
-    result = sum(im.astype(np.float64) for im in imgs)
-    return sum
+    imgs = [r_gradient_map_rocket_image, g_gradient_map_rocket_image, b_gradient_map_rocket_image]
+    energy = np.array(sum(im.astype(np.float64) for im in imgs))
+    return energy
 
 # def get_vertical_seams(img)
 
@@ -98,11 +98,10 @@ if __name__ == "__main__":
     xg, yg, b_gradient_map_rocket_image = gradient_maps(b_img, Dx, Dy)
     xg, yg, g_gradient_map_rocket_image = gradient_maps(g_img, Dx, Dy)
     xg, yg, r_gradient_map_rocket_image = gradient_maps(r_img, Dx, Dy)
-    # image_energy = get_image_energy(curr_img)
-    image_energy = curr_img
+    image_energy = get_image_energy(curr_img)
+    # image_energy = curr_img
 
 
-    print("\n\nwrong herre")
     normalized_r_gradient = normalize_image(r_gradient_map_rocket_image)
     normalized_g_gradient = normalize_image(g_gradient_map_rocket_image)
     normalized_b_gradient = normalize_image(b_gradient_map_rocket_image)
