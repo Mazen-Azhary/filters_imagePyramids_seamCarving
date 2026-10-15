@@ -25,7 +25,7 @@ def get_image_channels(img):
         channels.append([img[..., i] for i in range(img.shape[2])])
     return channels
     
-    
+
 def get_masked_img_channels(img):
     
     img_channels = get_image_channels(rocket_img)[0]
@@ -49,6 +49,15 @@ def get_masked_img_channels(img):
         return img_channels
 
 
+def normalize_image(img):
+    img = np.asarray(img, dtype=np.float64)
+    lo, hi = img.min(), img.max()
+    if hi == lo:                      # constant image: avoid divide-by-zero
+        return np.zeros_like(img)
+    return (img - lo) / (hi - lo)
+
+
+
 # def get_vertical_seams(img)
 
 
@@ -63,9 +72,8 @@ if __name__ == "__main__":
 
     img_channels = get_image_channels(curr_img)[0]
     if len(img_channels) == 3:
-        r_img = img_channels[0]
-        g_img = img_channels[1]
-        b_img = img_channels[2]
+        r_img, g_img, b_img = img_channels
+        r_img_normalized, g_img_normalized, b_img_normalized = normalize_image(r_img), normalize_image(g_img), normalize_image(b_img)
         # the picture is in RGB format, so the channels are in the order of R, G, B.
     
         blue_masked_img, green_masked_img, red_masked_img = get_masked_img_channels(curr_img)
@@ -77,9 +85,10 @@ if __name__ == "__main__":
     xg, yg, r_gradient_map_rocket_image = gradient_maps(r_img, Dx, Dy)
     print(b_gradient_map_rocket_image.shape)
 
+    print("b_gradient_map_rocket_image max pixel:", normalize_image(b_gradient_map_rocket_image).max())
     matplotlib.use('TkAgg') # Setting up my backend due to working in a virtual environment.
-    # show(*[curr_img, b_gradient_map_rocket_image, g_gradient_map_rocket_image, r_gradient_map_rocket_image], titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient"], size=5)
-    show(*[curr_img, blue_masked_img, green_masked_img, red_masked_img], titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient"], size=5)
+    show(*[curr_img, b_gradient_map_rocket_image, g_gradient_map_rocket_image, r_gradient_map_rocket_image], titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient"], size=5)
+    # show(*[curr_img, blue_masked_img, green_masked_img, red_masked_img], titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient"], size=5)
     # shows colored image in rgb format
 
     
