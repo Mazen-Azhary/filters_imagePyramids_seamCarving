@@ -140,7 +140,7 @@ cat_aligned_gray = rgb_to_gray(cat_aligned)
 
 # Apple + Orange (RGB)
 apple = load_image(IMAGE_DIR / "apple.jpg")
-orange = load_image(IMAGE_DIR / "orange_higher_contrast.jpg")
+orange = load_image(IMAGE_DIR / "orange_higher_contrast.png")
 apple_points = [(256, 145), (256, 380)]
 orange_points = [(256, 145), (256, 380)]
 orange_aligned = align_images(apple, orange, apple_points, orange_points)
