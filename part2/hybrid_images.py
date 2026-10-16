@@ -8,8 +8,8 @@ sys.path.insert(0, str(ROOT))
 IMAGE_DIR = ROOT / "starter_pack" / "images" / "part2_frequencies"
 OUTPUT_DIR = Path(".")
 
-from starter_pack.code.align_images import align_images, show_with_grid
-from starter_pack.code.utils import load_image, show
+from starter_pack.code.align_images import align_images
+from starter_pack.code.utils import load_image
 
 
 # =====================================================================
@@ -23,7 +23,7 @@ from starter_pack.code.utils import load_image, show
 # =====================================================================
 
 def rgb_to_gray(image):
-    #grayscale = 0.299*R + 0.587*G = 0.0.114*B
+    # grayscale = 0.299*R + 0.587*G + 0.114*B
     if image.ndim == 2:
         return image.astype(np.float32)
     return (0.299 * image[:, :, 0] + 0.587 * image[:, :, 1] + 0.114 * image[:, :, 2]).astype(np.float32)
@@ -81,6 +81,7 @@ def make_hybrid(low_source, high_source, low_sigma, high_sigma):
 
 
 def compare_sigmas(name, low_source, high_source, sigmas):
+    """Computes and renders a horizontal strip of hybrids across candidate sigmas."""
     fig, axes = plt.subplots(1, len(sigmas), figsize=(3.0 * len(sigmas), 3.5))
     if len(sigmas) == 1:
         axes = [axes]
@@ -125,12 +126,12 @@ def display_hybrid(name, low_source, high_source, low_frequency, high_frequency,
 
 
 # ==========================================
-# 1. Load and align image pairs
+# 1. Load, Align, and Convert to Grayscale
 # ==========================================
 
-# Man + Cat (Loaded, aligned, converted to grayscale)
 man = load_image(IMAGE_DIR / "hybrid_man.jpg")
 cat = load_image(IMAGE_DIR / "hybrid_cat.jpg")
+
 man_eye_points = [(299, 341), (443, 332)]
 cat_eye_points = [(605, 290), (760, 372)]
 cat_aligned = align_images(man, cat, man_eye_points, cat_eye_points)
@@ -138,51 +139,18 @@ cat_aligned = align_images(man, cat, man_eye_points, cat_eye_points)
 man_gray = rgb_to_gray(man)
 cat_aligned_gray = rgb_to_gray(cat_aligned)
 
-# Apple + Orange (RGB)
-apple = load_image(IMAGE_DIR / "apple.jpg")
-orange = load_image(IMAGE_DIR / "orange_higher_contrast.png")
-apple_points = [(256, 145), (256, 380)]
-orange_points = [(256, 145), (256, 380)]
-orange_aligned = align_images(apple, orange, apple_points, orange_points)
-
-# Rings + Brick (RGB)
-rings = load_image(IMAGE_DIR / "rings.png")
-brick = load_image(IMAGE_DIR / "brick.png")
-rings_points = [(130, 130), (380, 380)]
-brick_points = [(130, 130), (380, 380)]
-brick_aligned = align_images(rings, brick, rings_points, brick_points)
-
 
 # ==========================================
-# 2. Multi-sigma empirical sweeps
+# 2. Multi-Sigma Empirical Sweep
 # ==========================================
 
-# 2.1 Man + Cat Sweep
-# The wide range [1, 2, 5, 10, 20, 35] worked well here because facial structures
-# span coarse head silhouettes all the way down to fine whiskers.
+# Wide range tests fine texture (1-2), medium cutoff (5-10), and heavy blur (20-35)
 sigmas_man_cat = [1, 2, 5, 10, 20, 35]
 compare_sigmas("Man + Cat (Grayscale)", man_gray, cat_aligned_gray, sigmas_man_cat)
 
 
-# 2.2 Apple + Orange Sweep
-# NOTE ON SIGMA SELECTION:
-# The wide range [1, 2, 5, 10, 20, 35] used for the Man + Cat pair did not work well
-# for the Apple + Orange pair. The orange's target detail is the delicate, dimpled skin pore
-# texture, which lives in a much narrower and denser high-frequency band than facial features.
-# At sigma >= 15, the high-pass filter leaks heavy macroscopic shading and color gradients,
-# while the apple's clean circular boundary dissolves into muddy blur.
-# We therefore test a tighter, lower-to-mid range [2, 4, 6, 8, 10, 12] to locate the best balance.
-sigmas_apple_orange = [2, 4, 6, 8, 10, 12]
-compare_sigmas("Apple + Orange", apple, orange_aligned, sigmas_apple_orange)
-
-
-# 2.3 Rings + Brick Sweep
-sigmas_rings_brick = [2, 4, 6, 8, 10, 12]
-compare_sigmas("Rings + Brick", rings, brick_aligned, sigmas_rings_brick)
-
-
 # ==========================================
-# 3. Final display with best sigma (sigma = 10)
+# 3. Final Result with Best Sigma (sigma = 10)
 # ==========================================
 
 print("\n--- Tuning Result ---")
@@ -192,28 +160,27 @@ print("  - Low sigma (< 10) retains too many human edges, muddying the cat detai
 print("  - High sigma (> 10) blurs the human silhouette too much and leaves cat ghosting artifacts.")
 print("  - sigma = 10 cleanly isolates close-up whiskers/eyes while preserving face shape at distance.\n")
 
-best_sigma_man = 10
+best_sigma = 10
 man_low, cat_high, man_cat_hybrid = make_hybrid(
-    man_gray, cat_aligned_gray, low_sigma=best_sigma_man, high_sigma=best_sigma_man
+    man_gray, cat_aligned_gray, low_sigma=best_sigma, high_sigma=best_sigma
 )
 
 display_hybrid(
-    f"Man + Cat (Grayscale) - Final Result with Best σ = {best_sigma_man}",
+    f"Man + Cat (Grayscale) - Final Result with Best σ = {best_sigma}",
     man_gray, cat_aligned_gray, man_low, cat_high, man_cat_hybrid
 )
 
 
 # ==========================================
-# 4. Validation assertions
+# 4. Assertions
 # ==========================================
-cat_high = cat_aligned_gray - gaussian_blur(cat_aligned_gray, 10)
-_, _, man_cat_hybrid = make_hybrid(man_gray, cat_aligned_gray, 10, 10)
+cat_high_expected = cat_aligned_gray - gaussian_blur(cat_aligned_gray, 10)
 
 assert cat_aligned_gray.shape == man_gray.shape
-assert np.allclose(cat_high, cat_aligned_gray - gaussian_blur(cat_aligned_gray, 10))
+assert np.allclose(cat_high, cat_high_expected)
 assert gaussian_blur(man_gray, 10).shape == man_gray.shape
 assert np.isclose(gaussian_kernel(3).sum(), 1)
 constant = np.ones((9, 9), dtype=np.float32)
 assert np.allclose(gaussian_blur(constant, 2), constant)
 assert np.isfinite(man_cat_hybrid).all()
-print("All hybrid-image checks passed.")
+print("All Man + Cat checks passed successfully.")
