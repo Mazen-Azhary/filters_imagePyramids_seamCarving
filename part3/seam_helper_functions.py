@@ -56,7 +56,7 @@ def normalize_image(img):
         return np.zeros_like(img)
     return (img - lo) / (hi - lo)
 
-def  get_image_energy(img, energy_function = "gradient magnitude"):
+def  get_energy_grad_mag(img):
 
     img_channels = get_image_channels(img)
     r_img, g_img, b_img = img_channels[0], img_channels[1], img_channels[2]
@@ -124,6 +124,17 @@ def _remove_seams(img, energy, rows, cols, k, energy_fn, removed):
             print(f"energy shape after recomputing: {energy.shape}")
     return img, energy, rows, cols
 
+def _gaussian_blur(g, sigma):
+    r = max(1, int(3 * sigma + 0.5))
+    x = np.arange(-r, r + 1)
+    k = np.exp(-x**2 / (2 * sigma**2))
+    k /= k.sum()
+
+    H, W = g.shape
+    p = np.pad(g, r, mode="edge")
+    tmp = sum(k[i] * p[:, i:i + W] for i in range(2 * r + 1))   # blur along columns
+    return sum(k[i] * tmp[i:i + H] for i in range(2 * r + 1))   # blur along rows
+
 
 def seam_carve(energy, img, new_size, energy_fn=None):
     """
@@ -189,11 +200,6 @@ def draw_removed_seams(removed, img, color=(255, 0, 0)):
     out[pts[:, 0], pts[:, 1]] = color          # paint them in one vectorized step
     return out
 
-import numpy as np
-
-
-import numpy as np
-
 
 def resize_subsample(img, new_size):
     """
@@ -209,6 +215,23 @@ def resize_subsample(img, new_size):
     rows = (np.arange(new_h) * H / new_h).astype(int)   # first row of each block
     cols = (np.arange(new_w) * W / new_w).astype(int)   # first column of each block
     return img[rows][:, cols]
+
+def get_finite_diff_energy(img):
+    """Sum over channels of |dI/dx| + |dI/dy|."""
+    energy = 0
+    for ch in get_image_channels(img):
+        gy, gx = np.gradient(ch.astype(np.float64))
+        energy = energy + np.abs(gx) + np.abs(gy)
+    return energy
+
+def get_dog_energy(img, sigma=1.0, k=1.6):
+    """Sum over channels of |G(sigma) * I - G(k*sigma) * I|."""
+    energy = 0
+    for ch in get_image_channels(img):
+        ch = ch.astype(np.float64)
+        energy = energy + np.abs(_gaussian_blur(ch, sigma) - _gaussian_blur(ch, k * sigma))
+    return energy
+
 
 if __name__ == "__main__":
     broadway_img = load_image(images_dir / "broadway_tower.png")
@@ -235,7 +258,7 @@ if __name__ == "__main__":
     xg, yg, b_gradient_map_rocket_image = gradient_maps(b_img, Dx, Dy)
     xg, yg, g_gradient_map_rocket_image = gradient_maps(g_img, Dx, Dy)
     xg, yg, r_gradient_map_rocket_image = gradient_maps(r_img, Dx, Dy)
-    image_energy = get_image_energy(curr_img)
+    image_energy = get_energy_grad_mag(curr_img)
     # image_energy = curr_img
 
 
@@ -252,21 +275,21 @@ if __name__ == "__main__":
     
     # print(curr_img.shape)    
     # print(image_energy.shape)
-    # removed_seams, resized_img = seam_carve(image_energy, curr_img, (curr_img.shape[0]  , curr_img.shape[1] - 200), energy_fn=get_image_energy)
+    # removed_seams, resized_img = seam_carve(image_energy, curr_img, (curr_img.shape[0]  , curr_img.shape[1] - 200), energy_fn=get_energy_grad_mag)
     # vis = draw_removed_seams(removed_seams, curr_img, color=(255, 0, 0))
 
     matplotlib.use('TkAgg') # Setting up my backend due to working in a virtual environment.
     # show(*[curr_img, normalized_r_gradient, normalized_g_gradient, normalized_b_gradient, normalized_energy, ], \
     #        titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient", "energy"], size=5)
 
-    names = ["home.jpg", "rocket.jpg", "starry_night.jpg", "currents.jpg", "mountains.jpg", "robstark.jpeg"]
-
+    # names = ["home.jpg", "rocket.jpg", "starry_night.jpg", "currents.jpg", "mountains.jpg", "anakin.jpeg"]
+    names = ["anakin.jpg"]
     for name in names:
         img = load_image(images_dir / name)
 
         new_dim = (img.shape[0], int(img.shape[1] * 0.7))
-        energy = get_image_energy(img)
-        removed_seams, seam_carved_img = seam_carve(energy, img, new_dim, energy_fn=get_image_energy)
+        energy = get_finite_diff_energy(img)
+        removed_seams, seam_carved_img = seam_carve(energy, img, new_dim, energy_fn=get_energy_grad_mag)
         img_vis = draw_removed_seams(removed_seams, img, color=(255, 0, 0))
         img_resized = resize_subsample(img, new_dim)
         cropped_out = (int(img.shape[0] - new_dim[0]), int(img.shape[1] - new_dim[1]))
@@ -275,7 +298,8 @@ if __name__ == "__main__":
 
         show(img, img_resized, img_cropped, seam_carved_img,
             titles=["Original", "Resized", "Cropped", "Seam Carved"], size=8)
-        
+        show(img, energy, img_vis,
+            titles=["Original", "Energy", "Removed Seams"], size=8)
     # show(*[curr_img, resized_img, vis], titles=["Original", "Resized", "Removed Seams"], size=5)
     # show(*[home_img, home_seam_carved_img, home_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
     # show(*[rocket_img, rocket_seam_carved_img, rocket_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
