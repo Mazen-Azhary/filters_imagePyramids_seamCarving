@@ -1,15 +1,8 @@
-# =====================================================================
-# In a Jupyter notebook, run this in its own cell FIRST so clicks work:
-#     %matplotlib tk
-# (or %matplotlib widget if you prefer ipympl)
-# =====================================================================
-
 from pathlib import Path
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Resolve project paths from this file so the script works from any cwd.
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 IMAGE_DIR = ROOT / "starter_pack" / "images" / "part2_frequencies"
@@ -17,12 +10,8 @@ OUTPUT_DIR = ROOT / "part2" / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 from starter_pack.code.align_images import align_images, pick_points
-from starter_pack.code.utils import load_image
+from starter_pack.code.utils import load_image, save_image
 
-
-# =====================================================================
-# Helpers: grayscale, Gaussian blur, hybrid construction
-# =====================================================================
 
 def rgb_to_gray(image):
     if image.ndim == 2:
@@ -82,11 +71,6 @@ def make_hybrid(low_source, high_source, low_sigma, high_sigma):
     hybrid = low_frequency + high_frequency
     return low_frequency, high_frequency, hybrid
 
-
-# =====================================================================
-# Display helpers
-# =====================================================================
-
 def compare_sigmas(name, low_source, high_source, sigmas):
     fig, axes = plt.subplots(1, len(sigmas), figsize=(3.0 * len(sigmas), 3.5))
     if len(sigmas) == 1:
@@ -125,94 +109,99 @@ def display_hybrid(name, low_source, high_source, low_frequency, high_frequency,
     plt.show()
 
 
-# =====================================================================
-# 1. Load images
-# =====================================================================
+def find_image(*names):
+    for name in names:
+        path = IMAGE_DIR / name
+        if path.exists():
+            return path
+    names_text = ", ".join(names)
+    raise FileNotFoundError(f"Could not find any of these images in {IMAGE_DIR}: {names_text}")
+
+
+def choose_points(image, image_name):
+    print(f"Click 2 matching features on the {image_name} image, in the same order as the man.")
+    points = pick_points(image, n=2)
+    if len(points) != 2:
+        raise ValueError(
+            f"Expected 2 points for {image_name}, but received {len(points)}. "
+            "Run the script again and complete both clicks."
+        )
+    print(f"  {image_name.lower()}_eye_points = {points}")
+    return points
+
+
+def create_hybrid(man, target, target_name, man_points, sigma):
+    target_points = choose_points(target, target_name)
+    target_aligned = align_images(man, target, man_points, target_points)
+    print(f"{target_name.lower()}_aligned: shape={target_aligned.shape}")
+
+    man_gray = rgb_to_gray(man)
+    target_aligned_gray = rgb_to_gray(target_aligned)
+    compare_sigmas(
+        f"Man + {target_name} (Grayscale)",
+        man_gray,
+        target_aligned_gray,
+        [1, 2, 5, 10, 20, 35],
+    )
+
+    man_low, target_high, hybrid = make_hybrid(
+        man_gray,
+        target_aligned_gray,
+        low_sigma=sigma,
+        high_sigma=sigma,
+    )
+    display_hybrid(
+        f"Man + {target_name} (Grayscale) - Final Result with \u03c3 = {sigma}",
+        man_gray,
+        target_aligned_gray,
+        man_low,
+        target_high,
+        hybrid,
+    )
+    output_path = OUTPUT_DIR / f"man_and_{target_name.lower()}_sigma_{sigma}.png"
+    save_image(output_path, hybrid)
+    print(f"Saved hybrid to {output_path}")
+    return man_gray, target_aligned_gray, target_high, hybrid
+
 
 man = load_image(IMAGE_DIR / "hybrid_man.jpg")
-cat = load_image(IMAGE_DIR / "hybrid_cat.jpg")
+targets = {
+    "Cat": load_image(IMAGE_DIR / "hybrid_cat.jpg"),
+    "Dog": load_image(find_image("dog.jpeg", "dog.jpg")),
+    # "Dog": load_image(find_image("dog2.jpeg", "dog2.jpg")),
+    "Eagle": load_image(find_image("eagle.jpeg", "eagle.jpg")),
+}
 
 print(f"man: shape={man.shape}, dtype={man.dtype}")
-print(f"cat: shape={cat.shape}, dtype={cat.dtype}")
+for target_name, target in targets.items():
+    print(f"{target_name.lower()}: shape={target.shape}, dtype={target.dtype}")
 
-
-# =====================================================================
-# 2. Interactive point picking (always on)
-#
-#   - 2 clicks on the MAN image (e.g. left eye, right eye)
-#   - then 2 clicks on the CAT image at the *corresponding* features
-#     (same order: left eye first, then right eye)
-#
-# If your backend is not interactive, %matplotlib tk before this cell.
-# =====================================================================
-
-print("Step 1/2: click 2 points on the MAN image (e.g. left eye, right eye).")
-man_eye_points = pick_points(man, n=2)
-print(f"  man_eye_points = {man_eye_points}")
-
-print("Step 2/2: click the SAME 2 features on the CAT image, same order.")
-cat_eye_points = pick_points(cat, n=2)
-print(f"  cat_eye_points = {cat_eye_points}")
-
-
-# =====================================================================
-# 3. Align the cat onto the man
-#    (warp cat so its picked points land on the man's)
-# =====================================================================
-
-cat_aligned = align_images(man, cat, man_eye_points, cat_eye_points)
-print(f"cat_aligned: shape={cat_aligned.shape}")
-
-
-# =====================================================================
-# 4. Convert to grayscale
-# =====================================================================
-
-man_gray = rgb_to_gray(man)
-cat_aligned_gray = rgb_to_gray(cat_aligned)
-
-
-# =====================================================================
-# 5. Multi-Sigma Empirical Sweep
-# =====================================================================
-
-sigmas_man_cat = [1, 2, 5, 10, 20, 35]
-compare_sigmas("Man + Cat (Grayscale)", man_gray, cat_aligned_gray, sigmas_man_cat)
-
-
-# =====================================================================
-# 6. Final Result with Best Sigma (sigma = 10)
-# =====================================================================
-
-print("\n--- Tuning Result ---")
-print("After running multiple iterations over [1, 2, 5, 10, 20, 35],")
-print("sigma = 10 was selected as the optimal cutoff for Man + Cat:")
-print("  - Low sigma (< 10) retains too many human edges, muddying the cat details up close.")
-print("  - High sigma (> 10) blurs the human silhouette too much and leaves cat ghosting artifacts.")
-print("  - sigma = 10 cleanly isolates close-up whiskers/eyes while preserving face shape at distance.\n")
+print("Step 1/4: click 2 points on the MAN image (e.g. left eye, right eye).")
+man_eye_points = choose_points(man, "man")
+print(f"\nThe next three steps create Man + Cat, Man + Dog, and Man + Eagle.")
 
 best_sigma = 10
-man_low, cat_high, man_cat_hybrid = make_hybrid(
-    man_gray, cat_aligned_gray, low_sigma=best_sigma, high_sigma=best_sigma
+results = {}
+for target_name, target in targets.items():
+    print(f"\n--- Man + {target_name} ---")
+    results[target_name] = create_hybrid(
+        man,
+        target,
+        target_name,
+        man_eye_points,
+        best_sigma,
+    )
+
+man_gray, cat_aligned_gray, cat_high, man_cat_hybrid = results["Cat"]
+assert np.allclose(
+    cat_high,
+    cat_aligned_gray - gaussian_blur(cat_aligned_gray, best_sigma),
 )
-
-display_hybrid(
-    f"Man + Cat (Grayscale) - Final Result with Best \u03c3 = {best_sigma}",
-    man_gray, cat_aligned_gray, man_low, cat_high, man_cat_hybrid
-)
-
-
-# =====================================================================
-# 7. Assertions
-# =====================================================================
-
-cat_high_expected = cat_aligned_gray - gaussian_blur(cat_aligned_gray, 10)
-
-assert cat_aligned_gray.shape == man_gray.shape
-assert np.allclose(cat_high, cat_high_expected)
-assert gaussian_blur(man_gray, 10).shape == man_gray.shape
+assert gaussian_blur(man_gray, best_sigma).shape == man_gray.shape
 assert np.isclose(gaussian_kernel(3).sum(), 1)
 constant = np.ones((9, 9), dtype=np.float32)
 assert np.allclose(gaussian_blur(constant, 2), constant)
-assert np.isfinite(man_cat_hybrid).all()
-print("All Man + Cat checks passed successfully.")
+for _, (_, target_gray, _, hybrid) in results.items():
+    assert target_gray.shape == man_gray.shape
+    assert np.isfinite(hybrid).all()
+print("All Man + Cat, Man + Dog, and Man + Eagle checks passed successfully.")
