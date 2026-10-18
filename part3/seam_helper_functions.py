@@ -12,10 +12,9 @@ images_dir = parent_folder_dir / "starter_pack" / "images" / "part3_seams"
 sys.path.append(str(utils_dir))
 sys.path.append(str(images_dir))
 # stting up working directories to make sure code runs from anywhere
- 
 
 from utils import load_image, save_image, show
-from part1_utils import gradient_maps
+from part1_utils import gradient_maps, dog_filters, auto_threshold
 
 def get_image_channels(img):
     """Return the 3 channels of the image """
@@ -217,20 +216,20 @@ def resize_subsample(img, new_size):
     cols = (np.arange(new_w) * W / new_w).astype(int)   # first column of each block
     return img[rows][:, cols]
 
-def get_finite_diff_energy(img):
-    """Sum over channels of |dI/dx| + |dI/dy|."""
-    energy = 0
-    for ch in get_image_channels(img):
-        gy, gx = np.gradient(ch.astype(np.float64))
-        energy = energy + np.abs(gx) + np.abs(gy)
-    return energy
+def get_dog_energy(img, sigma=1.0, rel=0.25):
 
-def get_dog_energy(img, sigma=1.0, k=1.6):
-    """Sum over channels of |G(sigma) * I - G(k*sigma) * I|."""
-    energy = 0
-    for ch in get_image_channels(img):
-        ch = ch.astype(np.float64)
-        energy = energy + np.abs(_gaussian_blur(ch, sigma) - _gaussian_blur(ch, k * sigma))
+    img_channels = get_image_channels(img)
+
+    edges = []
+    for channel in img_channels:
+        G, DoGx, DoGy = dog_filters(sigma)
+        margin = G.shape[0] // 2 + 2
+        gx, gy, mag = gradient_maps(channel, DoGx, DoGy)  # one convolution per DoG filter
+        thr = auto_threshold(mag, margin, rel)
+        edges.append((mag > thr).astype(np.float64))
+
+    energy = np.array(sum(im.astype(np.float64) for im in edges))
+
     return energy
 
 
@@ -290,8 +289,8 @@ if __name__ == "__main__":
         img = load_image(images_dir / name)
 
         new_dim = (img.shape[0], int(img.shape[1] * 0.7))
-        finit_diff_energy = get_finite_diff_energy(img)
-        dog_energy = get_dog_energy(img)
+        finit_diff_energy = get_energy_grad_mag(img)
+        dog_energy = get_dog_energy(img[:,:,0])
         energy = dog_energy
         removed_seams, seam_carved_img = seam_carve(energy, img, new_dim, energy_fn=get_energy_grad_mag)
         img_vis = draw_removed_seams(removed_seams, img, color=(255, 0, 0))
