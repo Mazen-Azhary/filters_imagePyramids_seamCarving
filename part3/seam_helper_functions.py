@@ -259,7 +259,7 @@ if __name__ == "__main__":
     # show(*[curr_img, normalized_r_gradient, normalized_g_gradient, normalized_b_gradient, normalized_energy, ], \
     #        titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient", "energy"], size=5)
 
-    names = ["home.jpg", "rocket.jpg", "starry_night.jpg"]
+    names = ["home.jpg", "rocket.jpg", "starry_night.jpg", "currents.jpg", "mountains.jpg", "robstark.jpeg"]
 
     for name in names:
         img = load_image(images_dir / name)
