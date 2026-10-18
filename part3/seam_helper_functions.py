@@ -72,7 +72,88 @@ def  get_image_energy(img, energy_function = "gradient magnitude"):
     energy = np.array(sum(im.astype(np.float64) for im in imgs))
     return energy
 
-# def get_vertical_seams(img)
+
+def _find_vertical_seam(energy):
+    """DP: M[i, j] = e[i, j] + min(M[i-1, j-1], M[i-1, j], M[i-1, j+1])."""
+    H, W = energy.shape
+    M = energy.astype(np.float64).copy()
+    for i in range(1, H):
+        up = M[i - 1]
+        left = np.r_[np.inf, up[:-1]]
+        right = np.r_[up[1:], np.inf]
+        M[i] += np.minimum(np.minimum(left, up), right)
+
+    # backtrack from the cheapest pixel in the last row
+    seam = np.empty(H, dtype=int)
+    seam[-1] = np.argmin(M[-1])
+    for i in range(H - 2, -1, -1):
+        j = seam[i + 1]
+        lo, hi = max(j - 1, 0), min(j + 2, W)
+        seam[i] = lo + np.argmin(M[i, lo:hi])
+    return seam
+
+
+def _delete(arr, seam):
+    """Remove one pixel per row (works for 2D maps and HxWxC images)."""
+    H, W = arr.shape[:2]
+    mask = np.ones((H, W), dtype=bool)
+    mask[np.arange(H), seam] = False
+    return arr[mask].reshape((H, W - 1) + arr.shape[2:])
+
+
+def _remove_seams(img, energy, rows, cols, k, energy_fn, removed):
+    for _ in range(k):
+        seam = _find_vertical_seam(energy)
+        idx = np.arange(energy.shape[0])
+        # record where this seam sat in the ORIGINAL image: (row, col) pairs
+        removed.append(np.stack([rows[idx, seam], cols[idx, seam]], axis=1))
+
+        img = _delete(img, seam)
+        rows = _delete(rows, seam)
+        cols = _delete(cols, seam)
+        energy = _delete(energy, seam)
+        if energy_fn is not None:          # paper: recompute energy after each removal
+            energy = energy_fn(img)
+    return img, energy, rows, cols
+
+
+def seam_carve(energy, img, new_size, energy_fn=None):
+    """
+    energy   : (H, W) energy matrix of img
+    img      : (H, W) or (H, W, C) image
+    new_size : (new_h, new_w), shrinking only
+    energy_fn: optional f(img) -> energy, to recompute energy after each seam
+
+    Returns (removed, resized)
+      removed : list of seams in removal order; each is an (L, 2) int array of
+                (orig_row, orig_col) for every pixel on that seam
+      resized : the new image of shape (new_h, new_w[, C])
+    """
+    img = np.asarray(img)
+    energy = np.asarray(energy, dtype=np.float64)
+    H, W = img.shape[:2]
+    new_h, new_w = new_size
+    if energy.shape != (H, W):
+        raise ValueError("energy must have the same H, W as img")
+    if not (0 < new_h <= H and 0 < new_w <= W):
+        raise ValueError("new_size must be <= current size (shrinking only)")
+
+    # each pixel remembers where it came from; they get cut together with the image
+    rows, cols = np.indices((H, W))
+    removed = []
+
+    # 1) vertical seams reduce the width
+    img, energy, rows, cols = _remove_seams(
+        img, energy, rows, cols, W - new_w, energy_fn, removed)
+
+    # 2) horizontal seams = vertical seams on the transposed image
+    img = np.swapaxes(img, 0, 1)
+    energy, rows, cols = energy.T, rows.T, cols.T
+    img, energy, rows, cols = _remove_seams(
+        img, energy, rows, cols, H - new_h, energy_fn, removed)
+    img = np.swapaxes(img, 0, 1)
+
+    return removed, img
 
 
 if __name__ == "__main__":
