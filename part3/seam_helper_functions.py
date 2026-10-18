@@ -1,7 +1,7 @@
 import pathlib
 import sys
 import numpy as np
-import cv2
+import cv2 as cv
 import matplotlib
 
 
@@ -77,10 +77,10 @@ def _find_vertical_seam(energy):
     H, W = energy.shape
     M = energy.astype(np.float64).copy()
     for i in range(1, H):
-        up = M[i - 1]
-        left = np.r_[np.inf, up[:-1]]
-        right = np.r_[up[1:], np.inf]
-        M[i] += np.minimum(np.minimum(left, up), right)
+        up = M[i - 1] # the whole row above the current pixel row
+        left = np.r_[np.inf, up[:-1]] # left is the row above but shifted to the right, with inf at the first column
+        right = np.r_[up[1:], np.inf] # right is the row above but shifted to the left, with inf at the last column
+        M[i] += np.minimum(np.minimum(left, up), right) # calculating the minimum energy for the whole row by at each iteration 
 
     # backtrack from the cheapest pixel in the last row
     seam = np.empty(H, dtype=int)
@@ -191,8 +191,10 @@ def draw_removed_seams(removed, img, color=(255, 0, 0)):
 
 
 if __name__ == "__main__":
-    rocket_img = load_image(images_dir / "rocket.jpg") 
     broadway_img = load_image(images_dir / "broadway_tower.png")
+    home_img = load_image(images_dir / "home.jpg")
+    rocket_img = load_image(images_dir / "rocket.jpg")
+    starry_night_img = load_image(images_dir / "starry_night.jpg") 
 
     curr_img = broadway_img
     # this loads image in rgb format
@@ -228,13 +230,30 @@ if __name__ == "__main__":
     print("b_gradient_map_rocket_image max pixel:", b_gradient_map_rocket_image.max())
     print("b_gradient_map_rocket_image max pixel:", image_energy.max())
     
-    print(curr_img.shape)    
-    print(image_energy.shape)
-    removed_seams, resized_img = seam_carve(image_energy, curr_img, (curr_img.shape[0]  , curr_img.shape[1] - 200), energy_fn=get_image_energy)
-    vis = draw_removed_seams(removed_seams, curr_img, color=(255, 0, 0))
+    # print(curr_img.shape)    
+    # print(image_energy.shape)
+    # removed_seams, resized_img = seam_carve(image_energy, curr_img, (curr_img.shape[0]  , curr_img.shape[1] - 200), energy_fn=get_image_energy)
+    # vis = draw_removed_seams(removed_seams, curr_img, color=(255, 0, 0))
 
     matplotlib.use('TkAgg') # Setting up my backend due to working in a virtual environment.
     # show(*[curr_img, normalized_r_gradient, normalized_g_gradient, normalized_b_gradient, normalized_energy, ], \
     #        titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient", "energy"], size=5)
 
-    show(*[curr_img, resized_img, vis], titles=["Original", "Resized", "Removed Seams"], size=5)
+    home_new_dim = ( int(home_img.shape[0]*0.7)  ,  int(home_img.shape[1]*0.7) )
+    home_img_energy = get_image_energy(home_img)
+    home_removed_seams, home_seam_carved_img = seam_carve(home_img_energy, home_img, home_new_dim, energy_fn=get_image_energy)
+    home_img_vis = draw_removed_seams(home_removed_seams, home_img, color=(255, 0, 0))
+
+
+    rocket_img_energy = get_image_energy(rocket_img)
+    rocket_removed_seams, rocket_seam_carved_img = seam_carve(rocket_img_energy, rocket_img, ( int(rocket_img.shape[0]*0.7)  ,  int(rocket_img.shape[1]*0.7) ), energy_fn=get_image_energy)
+    rocket_img_vis = draw_removed_seams(rocket_removed_seams, rocket_img, color=(255, 0, 0))
+
+    starry_night_img_energy = get_image_energy(starry_night_img)
+    starry_night_removed_seams, starry_night_seam_carved_img = seam_carve(starry_night_img_energy, starry_night_img, ( int(starry_night_img.shape[0]*0.7)  ,  int(starry_night_img.shape[1]*0.7) ), energy_fn=get_image_energy)
+    starry_night_img_vis = draw_removed_seams(starry_night_removed_seams, starry_night_img, color=(255, 0, 0))
+
+    # show(*[curr_img, resized_img, vis], titles=["Original", "Resized", "Removed Seams"], size=5)
+    show(*[home_img, home_seam_carved_img, home_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
+    show(*[rocket_img, rocket_seam_carved_img, rocket_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
+    show(*[starry_night_img, starry_night_seam_carved_img, starry_night_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
