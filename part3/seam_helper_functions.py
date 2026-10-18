@@ -170,6 +170,25 @@ def seam_carve(energy, img, new_size, energy_fn=None):
 
     return removed, img
 
+def draw_removed_seams(removed, img, color=(255, 0, 0)):
+    """
+    removed : list of (L, 2) int arrays of (orig_row, orig_col), as returned by seam_carve
+    img     : the ORIGINAL image, (H, W) or (H, W, C)
+    color   : seam color, in the same value range as img (default red for uint8)
+
+    Returns a copy of img with every removed seam painted on it.
+    """
+    out = np.asarray(img).copy()
+    if out.ndim == 2:                          # grayscale -> RGB so the seams are visible
+        out = np.stack([out] * 3, axis=2)
+
+    if len(removed) == 0:
+        return out
+
+    pts = np.concatenate(removed, axis=0)      # all seams as one (N, 2) array
+    out[pts[:, 0], pts[:, 1]] = color          # paint them in one vectorized step
+    return out
+
 
 if __name__ == "__main__":
     rocket_img = load_image(images_dir / "rocket.jpg") 
@@ -211,11 +230,11 @@ if __name__ == "__main__":
     
     print(curr_img.shape)    
     print(image_energy.shape)
-    removed_seams, resized_img = seam_carve(image_energy, curr_img, (curr_img.shape[0], curr_img.shape[1] - 300), energy_fn=get_image_energy)
-
+    removed_seams, resized_img = seam_carve(image_energy, curr_img, (curr_img.shape[0]  , curr_img.shape[1] - 200), energy_fn=get_image_energy)
+    vis = draw_removed_seams(removed_seams, curr_img, color=(255, 0, 0))
 
     matplotlib.use('TkAgg') # Setting up my backend due to working in a virtual environment.
-    show(*[curr_img, normalized_r_gradient, normalized_g_gradient, normalized_b_gradient, normalized_energy, ], \
-           titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient", "energy"], size=5)
+    # show(*[curr_img, normalized_r_gradient, normalized_g_gradient, normalized_b_gradient, normalized_energy, ], \
+    #        titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient", "energy"], size=5)
 
-    show(*[curr_img, resized_img], titles=["Original", "Resized"], size=5)
+    show(*[curr_img, resized_img, vis], titles=["Original", "Resized", "Removed Seams"], size=5)
