@@ -5,7 +5,8 @@ import cv2 as cv
 import matplotlib
 
 
-parent_folder_dir = pathlib.Path(__file__).resolve().parent.parent
+folder_dir = pathlib.Path(__file__).resolve().parent
+parent_folder_dir = folder_dir.parent
 utils_dir = parent_folder_dir / "starter_pack" / "code" 
 images_dir = parent_folder_dir / "starter_pack" / "images" / "part3_seams"
 sys.path.append(str(utils_dir))
@@ -283,12 +284,15 @@ if __name__ == "__main__":
     #        titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient", "energy"], size=5)
 
     # names = ["home.jpg", "rocket.jpg", "starry_night.jpg", "currents.jpg", "mountains.jpg", "anakin.jpeg"]
-    names = ["anakin.jpg"]
+    names = ["rocket.jpg"]
     for name in names:
+        name_no_ext = name.split(".")[0]
         img = load_image(images_dir / name)
 
         new_dim = (img.shape[0], int(img.shape[1] * 0.7))
-        energy = get_finite_diff_energy(img)
+        finit_diff_energy = get_finite_diff_energy(img)
+        dog_energy = get_dog_energy(img)
+        energy = dog_energy
         removed_seams, seam_carved_img = seam_carve(energy, img, new_dim, energy_fn=get_energy_grad_mag)
         img_vis = draw_removed_seams(removed_seams, img, color=(255, 0, 0))
         img_resized = resize_subsample(img, new_dim)
@@ -296,6 +300,14 @@ if __name__ == "__main__":
         img_cropped = img[cropped_out[0]//2:img.shape[0] - cropped_out[0]//2,
                         cropped_out[1]//2:img.shape[1] - cropped_out[1]//2]
 
+        energy_type = "dog_energy"
+
+        save_image(folder_dir / "images" / energy_type / name_no_ext / f"seam_carved_{name}", seam_carved_img)
+        save_image(folder_dir / "images" / energy_type / name_no_ext / f"resized_{name}", img_resized)
+        save_image(folder_dir / "images" / energy_type / name_no_ext / f"cropped_{name}", img_cropped)
+        save_image(folder_dir / "images" / energy_type / name_no_ext / f"energy_{name}", energy)
+        save_image(folder_dir / "images" / energy_type / name_no_ext / f"removed_seams_{name}", img_vis)
+        
         show(img, img_resized, img_cropped, seam_carved_img,
             titles=["Original", "Resized", "Cropped", "Seam Carved"], size=8)
         show(img, energy, img_vis,
