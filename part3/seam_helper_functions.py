@@ -282,8 +282,8 @@ if __name__ == "__main__":
     # show(*[curr_img, normalized_r_gradient, normalized_g_gradient, normalized_b_gradient, normalized_energy, ], \
     #        titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient", "energy"], size=5)
 
-    # names = ["home.jpg", "rocket.jpg", "starry_night.jpg", "currents.jpg", "mountains.jpg", "anakin.jpeg"]
-    names = ["rocket.jpg"]
+    names = ["home.jpg", "rocket.jpg", "starry_night.jpg", "currents.jpg", "mountains.jpg", "anakin.jpg"]
+    # names = ["anakin.jpg"]
     for name in names:
         name_no_ext = name.split(".")[0]
         img = load_image(images_dir / name)
@@ -291,7 +291,7 @@ if __name__ == "__main__":
         new_dim = (img.shape[0], int(img.shape[1] * 0.7))
         finit_diff_energy = get_energy_grad_mag(img)
         dog_energy = get_dog_energy(img[:,:,0])
-        energy = dog_energy
+        energy = finit_diff_energy
         removed_seams, seam_carved_img = seam_carve(energy, img, new_dim, energy_fn=get_energy_grad_mag)
         img_vis = draw_removed_seams(removed_seams, img, color=(255, 0, 0))
         img_resized = resize_subsample(img, new_dim)
@@ -299,7 +299,7 @@ if __name__ == "__main__":
         img_cropped = img[cropped_out[0]//2:img.shape[0] - cropped_out[0]//2,
                         cropped_out[1]//2:img.shape[1] - cropped_out[1]//2]
 
-        energy_type = "dog_energy"
+        energy_type = "finit_diff_energy"
 
         save_image(folder_dir / "images" / energy_type / name_no_ext / f"seam_carved_{name}", seam_carved_img)
         save_image(folder_dir / "images" / energy_type / name_no_ext / f"resized_{name}", img_resized)
@@ -307,10 +307,10 @@ if __name__ == "__main__":
         save_image(folder_dir / "images" / energy_type / name_no_ext / f"energy_{name}", energy)
         save_image(folder_dir / "images" / energy_type / name_no_ext / f"removed_seams_{name}", img_vis)
         
-        show(img, img_resized, img_cropped, seam_carved_img,
-            titles=["Original", "Resized", "Cropped", "Seam Carved"], size=8)
-        show(img, energy, img_vis,
-            titles=["Original", "Energy", "Removed Seams"], size=8)
+        # show(img, img_resized, img_cropped, seam_carved_img,
+        #     titles=["Original", "Resized", "Cropped", "Seam Carved"], size=8)
+        # show(img, energy, img_vis,
+        #     titles=["Original", "Energy", "Removed Seams"], size=8)
     # show(*[curr_img, resized_img, vis], titles=["Original", "Resized", "Removed Seams"], size=5)
     # show(*[home_img, home_seam_carved_img, home_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
     # show(*[rocket_img, rocket_seam_carved_img, rocket_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
