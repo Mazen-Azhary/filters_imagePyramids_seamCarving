@@ -58,8 +58,7 @@ def normalize_image(img):
 
 def  get_image_energy(img, energy_function = "gradient magnitude"):
 
-    img_channels = get_image_channels(curr_img)
-
+    img_channels = get_image_channels(img)
     r_img, g_img, b_img = img_channels[0], img_channels[1], img_channels[2]
     Dx = np.array([[1.0, 0.0, -1.0]])  # 1 x 3
     Dy = Dx.T   
@@ -85,10 +84,15 @@ def _find_vertical_seam(energy):
 
     # backtrack from the cheapest pixel in the last row
     seam = np.empty(H, dtype=int)
-    seam[-1] = np.argmin(M[-1])
+
+    # storing vertical seams as a list of column indicies
+    seam[-1] = np.argmin(M[-1]) # column which have the lowest energy at the bottom row
+
+
+
     for i in range(H - 2, -1, -1):
-        j = seam[i + 1]
-        lo, hi = max(j - 1, 0), min(j + 2, W)
+        j = seam[i + 1] # getting the column of the seam in the row below
+        lo, hi = max(j - 1, 0), min(j + 2, W) # getting the actual cnadidates bounds
         seam[i] = lo + np.argmin(M[i, lo:hi])
     return seam
 
@@ -97,12 +101,15 @@ def _delete(arr, seam):
     """Remove one pixel per row (works for 2D maps and HxWxC images)."""
     H, W = arr.shape[:2]
     mask = np.ones((H, W), dtype=bool)
-    mask[np.arange(H), seam] = False
+    mask[np.arange(H), seam] = False # getting the (row,column) indicies & setting to false for the seam 
+
     return arr[mask].reshape((H, W - 1) + arr.shape[2:])
 
 
 def _remove_seams(img, energy, rows, cols, k, energy_fn, removed):
     for _ in range(k):
+
+        print(f" removing seam {_ + 1} of {k}...")
         seam = _find_vertical_seam(energy)
         idx = np.arange(energy.shape[0])
         # record where this seam sat in the ORIGINAL image: (row, col) pairs
@@ -114,6 +121,7 @@ def _remove_seams(img, energy, rows, cols, k, energy_fn, removed):
         energy = _delete(energy, seam)
         if energy_fn is not None:          # paper: recompute energy after each removal
             energy = energy_fn(img)
+            print(f"energy shape after recomputing: {energy.shape}")
     return img, energy, rows, cols
 
 
@@ -140,6 +148,13 @@ def seam_carve(energy, img, new_size, energy_fn=None):
 
     # each pixel remembers where it came from; they get cut together with the image
     rows, cols = np.indices((H, W))
+    # rows Matrix shape: (H, W), having the row index for all columns in each row
+    # cols Matrix shape: (H, W), having the column index for all rows in each column
+
+    # print("rows shape:", rows.shape)
+    # print(rows)
+    # print("cols shape:", cols.shape)
+    # print(cols)
     removed = []
 
     # 1) vertical seams reduce the width
@@ -194,10 +209,13 @@ if __name__ == "__main__":
     print("b_gradient_map_rocket_image max pixel:", b_gradient_map_rocket_image.max())
     print("b_gradient_map_rocket_image max pixel:", image_energy.max())
     
+    print(curr_img.shape)    
+    print(image_energy.shape)
+    removed_seams, resized_img = seam_carve(image_energy, curr_img, (curr_img.shape[0], curr_img.shape[1] - 300), energy_fn=get_image_energy)
+
+
     matplotlib.use('TkAgg') # Setting up my backend due to working in a virtual environment.
     show(*[curr_img, normalized_r_gradient, normalized_g_gradient, normalized_b_gradient, normalized_energy, ], \
            titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient", "energy"], size=5)
-    # show(*[curr_img, blue_masked_img, green_masked_img, red_masked_img], titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient"], size=5)
-    # shows colored image in rgb format
 
-    
+    show(*[curr_img, resized_img], titles=["Original", "Resized"], size=5)
