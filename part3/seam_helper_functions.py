@@ -189,6 +189,26 @@ def draw_removed_seams(removed, img, color=(255, 0, 0)):
     out[pts[:, 0], pts[:, 1]] = color          # paint them in one vectorized step
     return out
 
+import numpy as np
+
+
+import numpy as np
+
+
+def resize_subsample(img, new_size):
+    """
+    Resize by picking pixels (no blending): keep one row/column from each
+    successive block of rows/columns.
+    img      : (H, W) or (H, W, C)
+    new_size : (new_h, new_w), shrinking only
+    """
+    img = np.asarray(img)
+    H, W = img.shape[:2]
+    new_h, new_w = new_size
+
+    rows = (np.arange(new_h) * H / new_h).astype(int)   # first row of each block
+    cols = (np.arange(new_w) * W / new_w).astype(int)   # first column of each block
+    return img[rows][:, cols]
 
 if __name__ == "__main__":
     broadway_img = load_image(images_dir / "broadway_tower.png")
@@ -239,21 +259,38 @@ if __name__ == "__main__":
     # show(*[curr_img, normalized_r_gradient, normalized_g_gradient, normalized_b_gradient, normalized_energy, ], \
     #        titles=["Rocket Energy", "Blue Gradient", "Green Gradient", "Red Gradient", "energy"], size=5)
 
-    home_new_dim = ( int(home_img.shape[0]*0.7)  ,  int(home_img.shape[1]*0.7) )
+    home_new_dim = ( int(home_img.shape[0]*0.7)  ,  home_img.shape[1] )
     home_img_energy = get_image_energy(home_img)
     home_removed_seams, home_seam_carved_img = seam_carve(home_img_energy, home_img, home_new_dim, energy_fn=get_image_energy)
     home_img_vis = draw_removed_seams(home_removed_seams, home_img, color=(255, 0, 0))
+    home_img_resized = resize_subsample(home_img, home_new_dim)
+    home_cropped_out = ( int(home_img.shape[0] - home_new_dim[0])  ,  int(home_img.shape[1] - home_new_dim[1]) )
+    home_img_cropped = home_img[home_cropped_out[0]//2:home_img.shape[0] - home_cropped_out[0]//2,\
+                                 home_cropped_out[1]//2:home_img.shape[1] - home_cropped_out[1]//2]
 
-
+    rocket_new_dim = ( int(rocket_img.shape[0]*0.7)  ,  rocket_img.shape[1] )
     rocket_img_energy = get_image_energy(rocket_img)
-    rocket_removed_seams, rocket_seam_carved_img = seam_carve(rocket_img_energy, rocket_img, ( int(rocket_img.shape[0]*0.7)  ,  int(rocket_img.shape[1]*0.7) ), energy_fn=get_image_energy)
+    rocket_removed_seams, rocket_seam_carved_img = seam_carve(rocket_img_energy, rocket_img, rocket_new_dim, energy_fn=get_image_energy)
     rocket_img_vis = draw_removed_seams(rocket_removed_seams, rocket_img, color=(255, 0, 0))
+    rocket_img_resized = resize_subsample(rocket_img, rocket_new_dim)
+    rocket_cropped_out = ( int(rocket_img.shape[0] - rocket_new_dim[0])  ,  int(rocket_img.shape[1] - rocket_new_dim[1]) )
+    rocket_img_cropped = rocket_img[rocket_cropped_out[0]//2:rocket_img.shape[0] - rocket_cropped_out[0]//2,\
+                                 rocket_cropped_out[1]//2:rocket_img.shape[1] - rocket_cropped_out[1]//2]
 
+    starry_night_new_dim = ( int(starry_night_img.shape[0]*0.7)  ,  starry_night_img.shape[1] )
     starry_night_img_energy = get_image_energy(starry_night_img)
-    starry_night_removed_seams, starry_night_seam_carved_img = seam_carve(starry_night_img_energy, starry_night_img, ( int(starry_night_img.shape[0]*0.7)  ,  int(starry_night_img.shape[1]*0.7) ), energy_fn=get_image_energy)
+    starry_night_removed_seams, starry_night_seam_carved_img = seam_carve(starry_night_img_energy, starry_night_img, starry_night_new_dim, energy_fn=get_image_energy)
     starry_night_img_vis = draw_removed_seams(starry_night_removed_seams, starry_night_img, color=(255, 0, 0))
+    starry_night_img_resized = resize_subsample(starry_night_img, starry_night_new_dim)
+    starry_night_cropped_out = ( int(starry_night_img.shape[0] - starry_night_new_dim[0])  ,  int(starry_night_img.shape[1] - starry_night_new_dim[1]) )
+    starry_night_img_cropped = starry_night_img[starry_night_cropped_out[0]//2:starry_night_img.shape[0] - starry_night_cropped_out[0]//2,\
+                                 starry_night_cropped_out[1]//2:starry_night_img.shape[1] - starry_night_cropped_out[1]//2]
 
     # show(*[curr_img, resized_img, vis], titles=["Original", "Resized", "Removed Seams"], size=5)
-    show(*[home_img, home_seam_carved_img, home_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
-    show(*[rocket_img, rocket_seam_carved_img, rocket_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
-    show(*[starry_night_img, starry_night_seam_carved_img, starry_night_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
+    # show(*[home_img, home_seam_carved_img, home_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
+    # show(*[rocket_img, rocket_seam_carved_img, rocket_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
+    # show(*[starry_night_img, starry_night_seam_carved_img, starry_night_img_vis], titles=["Original", "Resized", "Removed Seams"], size=5)
+
+    show(*[home_img, home_img_resized, home_img_cropped, home_seam_carved_img], titles=["Original", "Resized", "Cropped", "Seam Carved"], size=8)
+    show(*[rocket_img, rocket_img_resized, rocket_img_cropped, rocket_seam_carved_img], titles=["Original", "Resized", "Cropped", "Seam Carved"], size=8)
+    show(*[starry_night_img, starry_night_img_resized, starry_night_img_cropped, starry_night_seam_carved_img], titles=["Original", "Resized", "Cropped", "Seam Carved"], size=8)
