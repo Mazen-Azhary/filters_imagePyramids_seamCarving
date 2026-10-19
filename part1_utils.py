@@ -1,26 +1,4 @@
-"""
-Assignment 1 - Part 1: Filters and Edges
-  1.1 Convolution from scratch (loop / vectorized / separable) + sanity check + timing
-  1.2 Finite difference operator
-  1.3 Derivative of Gaussian (DoG) filter
 
-Project layout this script expects (part1.py sits NEXT TO the starter_pack folder):
-
-    part1.py
-    starter_pack/
-        code/utils.py, code/align_images.py
-        images/part1_filters/cameraman.png, facade.png
-
-Run from the folder that contains part1.py:
-    python part1.py                       # runs 1.1, then 1.2 + 1.3 on facade.png and cameraman.png
-    python part1.py --image facade        # only one image (a name from the starter pack, or a file path)
-    python part1.py --sigma 2 --rel 0.25  # DoG sigma, and edge threshold = rel * (strong-edge strength)
-    python part1.py --thr12 0.2 --thr13 0.08   # or give absolute thresholds yourself
-    python part1.py --loop-up-to 31       # also time the (very slow) loop version on the big filters
-    python part1.py --show                # open the figures in windows as well
-
-Everything is saved in ./part1_output/
-"""
 import argparse
 import sys
 import time
@@ -39,9 +17,9 @@ from scipy.signal import convolve2d
 ROOT = Path(__file__).resolve().parent
 STARTER = ROOT / "starter_pack"
 sys.path.insert(0, str(STARTER / "code"))
-from utils import load_image, save_image  # noqa: E402  (starter-pack helper)
+from utils import load_image, save_image  
 
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt  
 
 IMG_DIR = STARTER / "images" / "part1_filters"
 OUT_DIR = ROOT / "part1_output"
